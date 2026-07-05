@@ -33,8 +33,24 @@ interface AppContextType {
   respondToShareRequest: (projectId: string, userId: string, accepted: boolean) => void;
 }
 
+const isValidUuid = (value?: string) => Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
+
+const createUuid = () => {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+    const random = Math.floor(Math.random() * 16);
+    const value = char === 'x' ? random : (random & 0x3) | 0x8;
+    return value.toString(16);
+  });
+};
+
+const normalizeId = (value?: string): string => (isValidUuid(value) ? value! : createUuid());
+
 const defaultAdmin: User = {
-  id: 'user_admin',
+  id: createUuid(),
   name: 'مدير النظام',
   username: 'admin',
   password: '123',
@@ -53,7 +69,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (!Array.isArray(parsed) || parsed.length === 0 || !parsed[0].role) {
         return [defaultAdmin];
       }
-      return parsed;
+      return parsed.map((user: User) => ({ ...user, id: normalizeId(user.id) }));
     } catch {
       return [defaultAdmin];
     }
@@ -63,7 +79,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       const savedUser = localStorage.getItem('currentUser');
       const parsed = savedUser && savedUser !== 'undefined' ? JSON.parse(savedUser) : null;
-      return parsed && typeof parsed === 'object' ? parsed : null;
+      return parsed && typeof parsed === 'object' ? { ...parsed, id: normalizeId(parsed.id) } : null;
     } catch {
       return null;
     }
@@ -77,7 +93,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       // Normalize old projects that might not have fields added by newer versions
       return parsed.map((p: Project) => ({
         ...p,
-        ownerId: p.ownerId || (Array.isArray(p.partners) && p.partners.length > 0 ? p.partners[0] : defaultAdmin.id),
+        id: normalizeId(p.id),
+        ownerId: normalizeId(p.ownerId || (Array.isArray(p.partners) && p.partners.length > 0 ? p.partners[0] : defaultAdmin.id)),
         partners: Array.isArray(p.partners) ? p.partners : [],
         partnerShares: p.partnerShares || undefined,
         shareRequests: Array.isArray(p.shareRequests) ? p.shareRequests : [],
@@ -138,12 +155,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const login = (username: string, password?: string) => {
     const user = users.find(u => (u.username || u.name) === username && u.password === password);
     if (!user) {
-      return 'بيانات الدخول غير صحيحة';
+      return 'بيانات الدخول غيرصحيحة';
     }
     if (!user.isActive) {
       return 'حسابك موقوف، الرجاء مراجعة الإدارة';
     }
     setCurrentUser(user);
+    // Ensure user exists in Supabase for foreign key references
+    void persistUserToSupabase(user);
     return null;
   };
 
@@ -153,7 +172,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // User Management
   const addUser = (userData: Omit<User, 'id'>) => {
-    const newUser: User = { ...userData, id: `user_${Date.now()}` };
+    const newUser: User = { ...userData, id: createUuid() };
     setUsers(prev => [...prev, newUser]);
     void persistUserToSupabase(newUser);
   };
@@ -182,7 +201,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Project Management
   const addProject = (projectData: Omit<Project, 'id' | 'createdAt' | 'payments'>) => {
-    const id = `proj_${Date.now()}`;
+    const id = createUuid();
     const newProject: Project = {
       ...projectData,
       id,
@@ -226,7 +245,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const addPayment = (projectId: string, paymentData: Omit<Payment, 'id' | 'acknowledgedBy'>) => {
     const newPayment: Payment = {
       ...paymentData,
-      id: `pay_${Date.now()}`,
+      id: createUuid(),
       acknowledgedBy: [paymentData.payerId]
     };
     setProjects(prev => prev.map(proj =>
@@ -259,7 +278,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Step Management
   const addProjectStep = (projectId: string, stepData: Omit<ProjectStep, 'id'>) => {
-    const newStep: ProjectStep = { ...stepData, id: `step_${Date.now()}` };
+    const newStep: ProjectStep = { ...stepData, id: createUuid() };
     setProjects(prev => prev.map(proj =>
       proj.id === projectId
         ? { ...proj, steps: [...(Array.isArray(proj.steps) ? proj.steps : []), newStep] }
@@ -281,7 +300,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const addNotification = (notificationData: Omit<Notification, 'id' | 'date' | 'isRead'>) => {
     const newNotification: Notification = {
       ...notificationData,
-      id: `notif_${Date.now()}_${Math.random()}`,
+      id: createUuid(),
       date: new Date().toISOString(),
       isRead: false,
       type: notificationData.type || 'system'
