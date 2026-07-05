@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { User, Project, Payment, ProjectStep, Notification } from '../types';
+import { isSupabaseConfigured } from '../lib/supabase';
+import { deleteProjectFromSupabase, loadSupabaseData, markNotificationReadInSupabase, persistNotificationToSupabase, persistPaymentToSupabase, persistProjectToSupabase, persistStepToSupabase, persistUserToSupabase, removePaymentFromSupabase, removeStepFromSupabase } from '../lib/supabaseSync';
 
 interface AppContextType {
   users: User[];
@@ -114,6 +116,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('notifications', JSON.stringify(notifications));
   }, [notifications]);
 
+  useEffect(() => {
+    const loadRemoteData = async () => {
+      if (!isSupabaseConfigured) return;
+      const remoteData = await loadSupabaseData();
+      if (!remoteData) return;
+      if (remoteData.users.length > 0) {
+        setUsers(remoteData.users);
+      }
+      if (remoteData.projects.length > 0) {
+        setProjects(remoteData.projects);
+      }
+      if (remoteData.notifications.length > 0) {
+        setNotifications(remoteData.notifications);
+      }
+    };
+
+    void loadRemoteData();
+  }, []);
+
   const login = (username: string, password?: string) => {
     const user = users.find(u => (u.username || u.name) === username && u.password === password);
     if (!user) {
@@ -133,11 +154,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // User Management
   const addUser = (userData: Omit<User, 'id'>) => {
     const newUser: User = { ...userData, id: `user_${Date.now()}` };
-    setUsers([...users, newUser]);
+    setUsers(prev => [...prev, newUser]);
+    void persistUserToSupabase(newUser);
   };
 
   const updateUser = (id: string, updates: Partial<User>) => {
-    setUsers(users.map(u => u.id === id ? { ...u, ...updates } : u));
+    const updatedUsers = users.map(u => u.id === id ? { ...u, ...updates } : u);
+    setUsers(updatedUsers);
+    const updatedUser = updatedUsers.find(u => u.id === id);
+    if (updatedUser) {
+      void persistUserToSupabase(updatedUser);
+    }
     if (currentUser?.id === id) {
       setCurrentUser(prev => prev ? { ...prev, ...updates } : null);
     }
@@ -166,11 +193,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       shareRequests: projectData.shareRequests || [],
     };
     setProjects(prev => [...prev, newProject]);
+    void persistProjectToSupabase(newProject);
     return id;
   };
 
   const updateProject = (id: string, updates: Partial<Project>) => {
-    setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+    setProjects(prev => {
+      const next = prev.map(p => p.id === id ? { ...p, ...updates } : p);
+      const updatedProject = next.find(p => p.id === id);
+      if (updatedProject) {
+        void persistProjectToSupabase(updatedProject);
+      }
+      return next;
+    });
   };
 
   const deleteProject = (id: string) => {
@@ -184,6 +219,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!canDelete) return;
 
     setProjects(prev => prev.filter(p => p.id !== id));
+    void deleteProjectFromSupabase(id);
   };
 
   // Payment Management
@@ -196,12 +232,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setProjects(prev => prev.map(proj =>
       proj.id === projectId ? { ...proj, payments: [...proj.payments, newPayment] } : proj
     ));
+    void persistPaymentToSupabase(newPayment, projectId);
   };
 
   const deletePayment = (projectId: string, paymentId: string) => {
     setProjects(prev => prev.map(proj =>
       proj.id === projectId ? { ...proj, payments: proj.payments.filter(p => p.id !== paymentId) } : proj
     ));
+    void removePaymentFromSupabase(projectId, paymentId);
   };
 
   const acknowledgePayment = (projectId: string, paymentId: string, userId: string) => {
@@ -227,6 +265,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         ? { ...proj, steps: [...(Array.isArray(proj.steps) ? proj.steps : []), newStep] }
         : proj
     ));
+    void persistStepToSupabase(newStep, projectId);
   };
 
   const deleteProjectStep = (projectId: string, stepId: string) => {
@@ -235,6 +274,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         ? { ...proj, steps: (Array.isArray(proj.steps) ? proj.steps : []).filter(s => s.id !== stepId) }
         : proj
     ));
+    void removeStepFromSupabase(projectId, stepId);
   };
 
   // Notification Management
@@ -247,10 +287,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       type: notificationData.type || 'system'
     };
     setNotifications(prev => [newNotification, ...prev]);
+    void persistNotificationToSupabase(newNotification);
   };
 
   const markNotificationAsRead = (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+    void markNotificationReadInSupabase(id, true);
   };
 
   const markAllNotificationsAsRead = (userId: string) => {
