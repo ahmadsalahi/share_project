@@ -314,8 +314,24 @@ body {
     display: none !important;
   }
 
-  .nav-user-container {
-    gap: 0.5rem !important;
+  .nav-desktop-menu {
+    display: none !important;
+  }
+
+  .nav-mobile-controls {
+    display: flex !important;
+  }
+
+  /* Solid background for top navbar on mobile */
+  nav {
+    background-color: var(--bg-primary) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  /* Solid background for mobile sidebar drawer */
+  .drawer-menu {
+    background-color: var(--bg-primary) !important;
   }
 
   nav .container {
@@ -332,7 +348,14 @@ body {
 
   /* Modals optimize padding & margins */
   .glass-panel {
-    padding: 1.5rem 1.25rem !important;
+    padding: 1.25rem 1rem !important;
+    width: 92% !important;
+    margin: 0 auto;
+  }
+
+  .input-field {
+    padding: 10px 12px !important;
+    font-size: 0.95rem !important;
   }
   
   .glass-panel h2, .glass-panel h3 {
@@ -348,6 +371,29 @@ body {
   h1 {
     font-size: 1.75rem !important;
   }
+}
+
+/* Button icon utility styles */
+.btn-icon {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.3s;
+}
+
+.btn-icon:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.btn-icon.btn-logout:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
 }
 
 /* Modal styling fallback */
@@ -384,4 +430,9 @@ body {
 @keyframes slideUp {
   from { transform: translateY(20px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
 }
