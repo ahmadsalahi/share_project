@@ -54,4 +54,3 @@ export interface Notification {
   requestedPercent?: number;
   type?: 'system' | 'share-request' | 'payment';
 }
-
