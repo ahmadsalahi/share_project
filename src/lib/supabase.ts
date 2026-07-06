@@ -1,14 +1,18 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl =
-  import.meta.env.VITE_SUPABASE_URL || 'https://gktkqbzprrwaepkfflue.supabase.co'
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
 
-const supabaseKey =
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_HLfJh3z02TIjl8JHNR3xFw_HWUqN_rw'
-
-console.log('Supabase URL exists:', Boolean(supabaseUrl))
-console.log('Supabase KEY exists:', Boolean(supabaseKey))
+console.log('VITE_SUPABASE_URL:', supabaseUrl)
+console.log('VITE_SUPABASE_KEY_EXISTS:', Boolean(supabaseKey))
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseKey)
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
+if (!isSupabaseConfigured) {
+  console.error('Supabase not configured on this build')
+}
+
+export const supabase = createClient(
+  supabaseUrl || '',
+  supabaseKey || ''
+)
