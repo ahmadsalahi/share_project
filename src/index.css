@@ -436,3 +436,78 @@ body {
   from { transform: translateX(100%); }
   to { transform: translateX(0); }
 }
+
+
+/* ===== Mobile drawer/navbar fix ===== */
+@media (max-width: 768px) {
+  .drawer-menu,
+  .mobile-menu,
+  .sidebar,
+  .nav-drawer {
+    position: fixed !important;
+    top: 0 !important;
+    right: 0 !important;
+    left: auto !important;
+    width: min(320px, 88vw) !important;
+    max-width: 88vw !important;
+    height: 100vh !important;
+    min-height: 100vh !important;
+    background: var(--bg-primary) !important;
+    z-index: 9999 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 1.25rem !important;
+    box-shadow: -12px 0 35px rgba(0, 0, 0, 0.45) !important;
+  }
+
+  .drawer-menu .glass-panel,
+  .mobile-menu .glass-panel,
+  .sidebar .glass-panel,
+  .nav-drawer .glass-panel {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .drawer-menu a,
+  .drawer-menu button,
+  .mobile-menu a,
+  .mobile-menu button,
+  .sidebar a,
+  .sidebar button,
+  .nav-drawer a,
+  .nav-drawer button {
+    width: 100% !important;
+    min-height: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.6rem !important;
+    white-space: nowrap !important;
+    text-align: center !important;
+    line-height: 1.2 !important;
+  }
+
+  .drawer-menu svg,
+  .mobile-menu svg,
+  .sidebar svg,
+  .nav-drawer svg {
+    flex-shrink: 0 !important;
+  }
+
+  .drawer-menu h1,
+  .drawer-menu h2,
+  .drawer-menu h3,
+  .mobile-menu h1,
+  .mobile-menu h2,
+  .mobile-menu h3,
+  .sidebar h1,
+  .sidebar h2,
+  .sidebar h3,
+  .nav-drawer h1,
+  .nav-drawer h2,
+  .nav-drawer h3 {
+    white-space: nowrap !important;
+    line-height: 1.25 !important;
+  }
+}
