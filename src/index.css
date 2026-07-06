@@ -219,3 +219,169 @@ body {
   align-items: center;
   justify-content: space-between;
 }
+
+/* Responsive Layout overrides */
+@media (max-width: 768px) {
+  .container {
+    padding: 1.25rem 0.75rem;
+  }
+  
+  /* Page headers stack vertically */
+  .page-header.flex-between {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 1.25rem !important;
+    text-align: center !important;
+  }
+  
+  .page-header.flex-between > div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .page-header.flex-between .btn-primary,
+  .page-header.flex-between .btn-secondary {
+    width: 100% !important;
+  }
+
+  /* Admin tab grid layout stacks */
+  .admin-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+  }
+
+  /* Stats grid card padding and size adjustments */
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+  
+  .stats-grid .glass-panel {
+    padding: 1.5rem !important;
+  }
+  
+  .stats-grid h2 {
+    font-size: 2rem !important;
+  }
+
+  /* Project progress card layouts stack on mobile */
+  .progress-section {
+    flex-direction: column !important;
+    text-align: center !important;
+    gap: 1.5rem !important;
+  }
+  
+  .progress-section > div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100% !important;
+  }
+  
+  .progress-section .btn-primary,
+  .progress-section .btn-secondary {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  /* Payment list rows become cards on mobile */
+  .payment-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 1.25rem !important;
+    gap: 1rem !important;
+  }
+  
+  .payment-row > div:nth-child(2) {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    margin-top: 0.5rem !important;
+    border-top: 1px solid var(--border-color) !important;
+    padding-top: 0.75rem !important;
+    width: 100% !important;
+  }
+
+  .payment-row > div:nth-child(2) > div {
+    display: flex !important;
+    gap: 0.5rem !important;
+  }
+
+  /* Navbar spacing and hiding username to fit small mobile screens */
+  .nav-username {
+    display: none !important;
+  }
+
+  .nav-user-container {
+    gap: 0.5rem !important;
+  }
+
+  nav .container {
+    padding: 0 0.5rem !important;
+  }
+
+  nav a {
+    gap: 0.5rem !important;
+  }
+
+  nav h2 {
+    font-size: 1.1rem !important;
+  }
+
+  /* Modals optimize padding & margins */
+  .glass-panel {
+    padding: 1.5rem 1.25rem !important;
+  }
+  
+  .glass-panel h2, .glass-panel h3 {
+    font-size: 1.25rem !important;
+  }
+
+  .btn-primary, .btn-secondary {
+    padding: 10px 16px !important;
+    font-size: 0.9rem !important;
+  }
+  
+  /* Text and details tweaks */
+  h1 {
+    font-size: 1.75rem !important;
+  }
+}
+
+/* Modal styling fallback */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 1500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  animation: fadeIn 0.2s ease;
+}
+
+.modal-content {
+  background: var(--bg-secondary);
+  border: 1px solid rgba(212,175,55,0.2);
+  border-radius: 20px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(212,175,55,0.1);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}

@@ -22,7 +22,7 @@ const Dashboard: React.FC = () => {
 
   return (
     <div>
-      <div className="flex-between" style={{ marginBottom: '2rem' }}>
+      <div className="flex-between page-header" style={{ marginBottom: '2rem' }}>
         <div>
           <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>لوحة التحكم</h1>
           <div style={{ color: 'var(--text-secondary)', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
@@ -64,7 +64,7 @@ const Dashboard: React.FC = () => {
           )}
         </div>
       ) : (
-        <div style={{ 
+        <div className="projects-grid" style={{ 
           display: 'grid', 
           gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
           gap: '1.5rem' 

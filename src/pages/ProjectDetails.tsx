@@ -191,7 +191,7 @@ const ProjectDetails: React.FC = () => {
             <ArrowRight size={20} />
             العودة للمشاريع
           </Link>
-          <div className="flex-between">
+          <div className="flex-between page-header">
             <div>
               <h1 style={{ fontSize: '2rem', margin: '0 0 0.5rem 0' }}>{project.title}</h1>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -252,7 +252,7 @@ const ProjectDetails: React.FC = () => {
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+        <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
           <div className="glass-panel" style={{ padding: '2rem' }}>
             <p style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>إجمالي الاستثمار</p>
             <h2 style={{ fontSize: '2.5rem', fontWeight: 700, margin: 0 }} className="text-gradient">
@@ -319,7 +319,7 @@ const ProjectDetails: React.FC = () => {
           background: 'linear-gradient(135deg, rgba(212,175,55,0.06) 0%, rgba(0,122,61,0.06) 100%)',
           border: '1px solid rgba(212,175,55,0.18)',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+          <div className="progress-section" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
 
             {/* Circular gauge */}
             <div style={{ position: 'relative', width: '90px', height: '90px', flexShrink: 0 }}>
@@ -399,7 +399,7 @@ const ProjectDetails: React.FC = () => {
                 const isAcknowledgedByOther = payment.acknowledgedBy?.includes(otherPartner.id);
 
                 return (
-                  <div key={payment.id} style={{ 
+                  <div key={payment.id} className="payment-row" style={{ 
                     background: 'rgba(255, 255, 255, 0.03)', 
                     border: '1px solid var(--border-color)', 
                     padding: '1.5rem', 

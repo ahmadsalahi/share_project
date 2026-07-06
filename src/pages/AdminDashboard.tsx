@@ -73,7 +73,7 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {activeTab === 'partners' && (
-        <div style={{ display: 'grid', gap: '2rem', gridTemplateColumns: '1fr 2fr' }}>
+        <div className="admin-grid" style={{ display: 'grid', gap: '2rem', gridTemplateColumns: '1fr 2fr' }}>
           
           {/* Add Partner Form */}
           <div className="glass-panel" style={{ padding: '2rem' }}>

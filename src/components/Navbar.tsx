@@ -52,12 +52,12 @@ const Navbar: React.FC = () => {
         </Link>
 
         {currentUser && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div className="nav-user-container" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', fontWeight: 'bold' }}>
                 {currentUser.name.charAt(0)}
               </div>
-              <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{currentUser.name}</span>
+              <span className="nav-username" style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{currentUser.name}</span>
             </div>
 
             <Link to="/" className="btn-secondary" style={{ padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="العودة للداشبورد">
