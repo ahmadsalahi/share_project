@@ -1,11 +1,11 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://gktkqbzprrwaepkfflue.supabase.co'
-const supabaseKey = 'sb_publishable_HLfJh3z02TIjl8JHNR3xFw_HWUqN_rw'
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-console.log('SUPABASE URL USED:', supabaseUrl)
-console.log('SUPABASE KEY USED:', supabaseKey.slice(0, 25))
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
-export const isSupabaseConfigured = true
-
-export const supabase = createClient(supabaseUrl, supabaseKey)
+export const supabase = createClient(
+  supabaseUrl || 'https://example.supabase.co',
+  supabaseAnonKey || 'public-anon-key'
+);
