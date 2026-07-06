@@ -6,7 +6,7 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseKey)
 
 if (!isSupabaseConfigured) {
-  console.error('Missing Supabase env variables', {
+  console.error('Missing Supabase environment variables', {
     hasUrl: Boolean(supabaseUrl),
     hasKey: Boolean(supabaseKey),
   })
