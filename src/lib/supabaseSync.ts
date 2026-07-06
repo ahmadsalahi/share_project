@@ -116,6 +116,20 @@ export const loadSupabaseData = async () => {
   }
 };
 
+export const clearSupabaseData = async () => {
+  if (!isSupabaseConfigured) return;
+
+  await Promise.all([
+    supabase.from('notifications').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+    supabase.from('project_steps').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+    supabase.from('payments').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+    supabase.from('project_partners').delete().neq('project_id', '00000000-0000-0000-0000-000000000000'),
+    supabase.from('share_requests').delete().neq('project_id', '00000000-0000-0000-0000-000000000000'),
+    supabase.from('projects').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+    supabase.from('profiles').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+  ]);
+};
+
 export const persistUserToSupabase = async (user: User) => {
   if (!isSupabaseConfigured) return;
   await supabase.from('profiles').upsert({

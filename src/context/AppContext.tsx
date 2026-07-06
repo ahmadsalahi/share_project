@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { User, Project, Payment, ProjectStep, Notification } from '../types';
 import { isSupabaseConfigured } from '../lib/supabase';
-import { deleteProjectFromSupabase, loadSupabaseData, markNotificationReadInSupabase, persistNotificationToSupabase, persistPaymentToSupabase, persistProjectToSupabase, persistStepToSupabase, persistUserToSupabase, removePaymentFromSupabase, removeStepFromSupabase } from '../lib/supabaseSync';
+import { clearSupabaseData, deleteProjectFromSupabase, loadSupabaseData, markNotificationReadInSupabase, persistNotificationToSupabase, persistPaymentToSupabase, persistProjectToSupabase, persistStepToSupabase, persistUserToSupabase, removePaymentFromSupabase, removeStepFromSupabase } from '../lib/supabaseSync';
 
 interface AppContextType {
   users: User[];
@@ -49,13 +49,45 @@ const createUuid = () => {
 
 const normalizeId = (value?: string): string => (isValidUuid(value) ? value! : createUuid());
 
-const defaultAdmin: User = {
+const STORAGE_RESET_VERSION = '2026-07-05-admin-reset';
+let hasClearedStoredAppData = false;
+
+const createDefaultAdmin = (): User => ({
   id: createUuid(),
   name: 'مدير النظام',
   username: 'admin',
   password: '123',
   role: 'admin',
   isActive: true
+});
+
+const clearStoredAppData = () => {
+  if (typeof window === 'undefined') return;
+
+  ['users', 'currentUser', 'projects', 'notifications'].forEach((key) => {
+    window.localStorage.removeItem(key);
+  });
+
+  try {
+    window.sessionStorage.clear();
+  } catch {
+    // Ignore storage access issues in restricted environments.
+  }
+
+  window.localStorage.setItem('app-data-reset-version', STORAGE_RESET_VERSION);
+  void clearSupabaseData();
+};
+
+const shouldResetStoredData = () => {
+  if (typeof window === 'undefined') return false;
+  if (hasClearedStoredAppData) return false;
+
+  const storedVersion = window.localStorage.getItem('app-data-reset-version');
+  if (storedVersion === STORAGE_RESET_VERSION) return false;
+
+  clearStoredAppData();
+  hasClearedStoredAppData = true;
+  return true;
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -63,20 +95,26 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [users, setUsers] = useState<User[]>(() => {
     try {
+      if (typeof window === 'undefined') return [createDefaultAdmin()];
+      if (shouldResetStoredData()) return [createDefaultAdmin()];
+
       const savedUsers = localStorage.getItem('users');
       const parsed = savedUsers && savedUsers !== 'undefined' ? JSON.parse(savedUsers) : null;
       // If we don't have valid users array (like from older version), clear it out
       if (!Array.isArray(parsed) || parsed.length === 0 || !parsed[0].role) {
-        return [defaultAdmin];
+        return [createDefaultAdmin()];
       }
       return parsed.map((user: User) => ({ ...user, id: normalizeId(user.id) }));
     } catch {
-      return [defaultAdmin];
+      return [createDefaultAdmin()];
     }
   });
   
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     try {
+      if (typeof window === 'undefined') return null;
+      if (shouldResetStoredData()) return createDefaultAdmin();
+
       const savedUser = localStorage.getItem('currentUser');
       const parsed = savedUser && savedUser !== 'undefined' ? JSON.parse(savedUser) : null;
       return parsed && typeof parsed === 'object' ? { ...parsed, id: normalizeId(parsed.id) } : null;
@@ -94,7 +132,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return parsed.map((p: Project) => ({
         ...p,
         id: normalizeId(p.id),
-        ownerId: normalizeId(p.ownerId || (Array.isArray(p.partners) && p.partners.length > 0 ? p.partners[0] : defaultAdmin.id)),
+        ownerId: normalizeId(p.ownerId || (Array.isArray(p.partners) && p.partners.length > 0 ? p.partners[0] : createDefaultAdmin().id)),
         partners: Array.isArray(p.partners) ? p.partners : [],
         partnerShares: p.partnerShares || undefined,
         shareRequests: Array.isArray(p.shareRequests) ? p.shareRequests : [],
@@ -139,7 +177,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const remoteData = await loadSupabaseData();
       if (!remoteData) return;
       if (remoteData.users.length > 0) {
-        setUsers(remoteData.users);
+        // Merge remote users with local ones to retain their password from localStorage if it exists
+        const savedUsersJson = localStorage.getItem('users');
+        let localPasswords: Record<string, string> = {};
+        if (savedUsersJson) {
+          try {
+            const parsed = JSON.parse(savedUsersJson);
+            if (Array.isArray(parsed)) {
+              parsed.forEach((u: any) => {
+                if (u.id && u.password) {
+                  localPasswords[u.id] = u.password;
+                }
+              });
+            }
+          } catch (e) {
+            console.error('Error parsing local users for password merge:', e);
+          }
+        }
+
+        const mergedUsers = remoteData.users.map(u => ({
+          ...u,
+          password: u.password || localPasswords[u.id] || '123'
+        }));
+        setUsers(mergedUsers);
       }
       if (remoteData.projects.length > 0) {
         setProjects(remoteData.projects);
