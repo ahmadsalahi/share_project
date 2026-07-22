@@ -8,11 +8,12 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username || !password) return;
 
-    const errMsg = login(username.trim(), password);
+    setError(null);
+    const errMsg = await login(username.trim(), password);
     if (errMsg) {
       setError(errMsg);
     }

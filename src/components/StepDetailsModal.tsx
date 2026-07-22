@@ -11,6 +11,11 @@ interface StepDetailsModalProps {
 const StepDetailsModal: React.FC<StepDetailsModalProps> = ({ isOpen, onClose, step }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
+  // Reset image index when step changes or modal opens
+  React.useEffect(() => {
+    setCurrentImageIndex(0);
+  }, [step, isOpen]);
+
   if (!isOpen || !step) return null;
 
   const handleNextImage = () => {
@@ -24,11 +29,6 @@ const StepDetailsModal: React.FC<StepDetailsModalProps> = ({ isOpen, onClose, st
       setCurrentImageIndex(prev => prev - 1);
     }
   };
-
-  // Reset image index when step changes or modal opens
-  React.useEffect(() => {
-    setCurrentImageIndex(0);
-  }, [step, isOpen]);
 
   return (
     <div className="modal-overlay" style={{ zIndex: 1050 }}>

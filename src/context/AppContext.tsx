@@ -1,15 +1,15 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { User, Project, Payment, ProjectStep, Notification } from '../types';
-import { isSupabaseConfigured } from '../lib/supabase';
-import { clearSupabaseData, deleteProjectFromSupabase, loadSupabaseData, markNotificationReadInSupabase, persistNotificationToSupabase, persistPaymentToSupabase, persistProjectToSupabase, persistStepToSupabase, persistUserToSupabase, removePaymentFromSupabase, removeStepFromSupabase } from '../lib/supabaseSync';
+import { isFirebaseConfigured } from '../lib/firebase';
+import { clearFirebaseData, deleteProjectFromFirebase, loadFirebaseData, markNotificationReadInFirebase, persistNotificationToFirebase, persistPaymentToFirebase, persistProjectToFirebase, persistStepToFirebase, persistUserToFirebase, removePaymentFromFirebase, removeStepFromFirebase } from '../lib/firebaseSync';
 
 interface AppContextType {
   users: User[];
   currentUser: User | null;
   projects: Project[];
   notifications: Notification[];
-  login: (username: string, password?: string) => string | null; // returns error message if any
+  login: (username: string, password?: string) => Promise<string | null>; // returns error message if any
   logout: () => void;
   // Admin User Actions
   addUser: (user: Omit<User, 'id'>) => void;
@@ -53,7 +53,7 @@ const STORAGE_RESET_VERSION = '2026-07-05-admin-reset';
 let hasClearedStoredAppData = false;
 
 const createDefaultAdmin = (): User => ({
-  id: createUuid(),
+  id: 'admin-default-id',
   name: 'مدير النظام',
   username: 'admin',
   password: '123',
@@ -75,7 +75,7 @@ const clearStoredAppData = () => {
   }
 
   window.localStorage.setItem('app-data-reset-version', STORAGE_RESET_VERSION);
-  void clearSupabaseData();
+  void clearFirebaseData();
 };
 
 const shouldResetStoredData = () => {
@@ -89,6 +89,8 @@ const shouldResetStoredData = () => {
   hasClearedStoredAppData = true;
   return true;
 };
+
+
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -171,58 +173,67 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('notifications', JSON.stringify(notifications));
   }, [notifications]);
 
+  // Sync state with Firebase on load
   useEffect(() => {
     const loadRemoteData = async () => {
-      if (!isSupabaseConfigured) return;
-      const remoteData = await loadSupabaseData();
+      if (!isFirebaseConfigured) return;
+      const remoteData = await loadFirebaseData();
       if (!remoteData) return;
-      if (remoteData.users.length > 0) {
-        // Merge remote users with local ones to retain their password from localStorage if it exists
-        const savedUsersJson = localStorage.getItem('users');
-        let localPasswords: Record<string, string> = {};
-        if (savedUsersJson) {
-          try {
-            const parsed = JSON.parse(savedUsersJson);
-            if (Array.isArray(parsed)) {
-              parsed.forEach((u: any) => {
-                if (u.id && u.password) {
-                  localPasswords[u.id] = u.password;
-                }
-              });
-            }
-          } catch (e) {
-            console.error('Error parsing local users for password merge:', e);
-          }
-        }
 
-        const mergedUsers = remoteData.users.map(u => ({
-          ...u,
-          password: u.password || localPasswords[u.id] || '123'
-        }));
-        setUsers(mergedUsers);
+      // If there are no profiles in Firestore (fresh db), save default admin profile
+      if (remoteData.users.length === 0) {
+        const defaultAdmin = createDefaultAdmin();
+        await persistUserToFirebase(defaultAdmin);
+        remoteData.users = [defaultAdmin];
       }
-      if (remoteData.projects.length > 0) {
-        setProjects(remoteData.projects);
-      }
-      if (remoteData.notifications.length > 0) {
-        setNotifications(remoteData.notifications);
+      
+      setUsers(remoteData.users);
+      setProjects(remoteData.projects);
+      setNotifications(remoteData.notifications);
+
+      // Restore session locally if still valid in Firestore
+      const savedUserJson = localStorage.getItem('currentUser');
+      if (savedUserJson) {
+        try {
+          const parsed = JSON.parse(savedUserJson);
+          if (parsed && parsed.id) {
+            const matchedUser = remoteData.users.find(u => u.id === parsed.id);
+            if (matchedUser && matchedUser.isActive) {
+              setCurrentUser(matchedUser);
+            } else {
+              setCurrentUser(null);
+            }
+          }
+        } catch {
+          setCurrentUser(null);
+        }
       }
     };
 
     void loadRemoteData();
   }, []);
 
-  const login = (username: string, password?: string) => {
-    const user = users.find(u => (u.username || u.name) === username && u.password === password);
+  const login = async (username: string, password?: string) => {
+    if (!password) return 'الرجاء إدخال كلمة المرور';
+
+    let currentUsers = users;
+    // If users array only has the local stub, load profiles from firestore
+    if (currentUsers.length === 0 || (currentUsers.length === 1 && currentUsers[0].id === 'admin-default-id')) {
+      const remoteData = await loadFirebaseData();
+      if (remoteData && remoteData.users.length > 0) {
+        currentUsers = remoteData.users;
+        setUsers(remoteData.users);
+      }
+    }
+
+    const user = currentUsers.find(u => (u.username || u.name).toLowerCase() === username.toLowerCase().trim() && u.password === password);
     if (!user) {
-      return 'بيانات الدخول غيرصحيحة';
+      return 'بيانات الدخول غير صحيحة';
     }
     if (!user.isActive) {
       return 'حسابك موقوف، الرجاء مراجعة الإدارة';
     }
     setCurrentUser(user);
-    // Ensure user exists in Supabase for foreign key references
-    void persistUserToSupabase(user);
     return null;
   };
 
@@ -231,26 +242,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // User Management
-  const addUser = (userData: Omit<User, 'id'>) => {
-    const newUser: User = { ...userData, id: createUuid() };
+  const addUser = async (userData: Omit<User, 'id'>) => {
+    const newUser: User = {
+      ...userData,
+      id: createUuid(),
+      password: userData.password || '123'
+    };
     setUsers(prev => [...prev, newUser]);
-    void persistUserToSupabase(newUser);
+    await persistUserToFirebase(newUser);
   };
 
-  const updateUser = (id: string, updates: Partial<User>) => {
+  const updateUser = async (id: string, updates: Partial<User>) => {
     const updatedUsers = users.map(u => u.id === id ? { ...u, ...updates } : u);
     setUsers(updatedUsers);
+    
     const updatedUser = updatedUsers.find(u => u.id === id);
     if (updatedUser) {
-      void persistUserToSupabase(updatedUser);
+      await persistUserToFirebase(updatedUser);
     }
+    
     if (currentUser?.id === id) {
       setCurrentUser(prev => prev ? { ...prev, ...updates } : null);
     }
   };
 
   const deleteUser = (id: string) => {
-    // Check if user is linked to any project
     const hasProjects = projects.some(p => p.partners.includes(id) || p.payments.some(pay => pay.payerId === id));
     if (hasProjects) {
       return 'لا يمكن حذف هذا الشريك لوجود ارتباط بمشاريع أو دفعات مالية. يمكنك إيقاف الحساب بدلاً من حذفه.';
@@ -272,7 +288,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       shareRequests: projectData.shareRequests || [],
     };
     setProjects(prev => [...prev, newProject]);
-    void persistProjectToSupabase(newProject);
+    void persistProjectToFirebase(newProject);
     return id;
   };
 
@@ -281,7 +297,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const next = prev.map(p => p.id === id ? { ...p, ...updates } : p);
       const updatedProject = next.find(p => p.id === id);
       if (updatedProject) {
-        void persistProjectToSupabase(updatedProject);
+        void persistProjectToFirebase(updatedProject);
       }
       return next;
     });
@@ -298,7 +314,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!canDelete) return;
 
     setProjects(prev => prev.filter(p => p.id !== id));
-    void deleteProjectFromSupabase(id);
+    void deleteProjectFromFirebase(id);
   };
 
   // Payment Management
@@ -311,14 +327,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setProjects(prev => prev.map(proj =>
       proj.id === projectId ? { ...proj, payments: [...proj.payments, newPayment] } : proj
     ));
-    void persistPaymentToSupabase(newPayment, projectId);
+    void persistPaymentToFirebase(newPayment, projectId);
   };
 
   const deletePayment = (projectId: string, paymentId: string) => {
     setProjects(prev => prev.map(proj =>
       proj.id === projectId ? { ...proj, payments: proj.payments.filter(p => p.id !== paymentId) } : proj
     ));
-    void removePaymentFromSupabase(projectId, paymentId);
+    void removePaymentFromFirebase(projectId, paymentId);
   };
 
   const acknowledgePayment = (projectId: string, paymentId: string, userId: string) => {
@@ -330,7 +346,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           if (p.id !== paymentId) return p;
           const currentAcks = p.acknowledgedBy || [];
           if (currentAcks.includes(userId)) return p;
-          return { ...p, acknowledgedBy: [...currentAcks, userId] };
+          const updatedPayment = { ...p, acknowledgedBy: [...currentAcks, userId] };
+          void persistPaymentToFirebase(updatedPayment, projectId);
+          return updatedPayment;
         })
       };
     }));
@@ -344,7 +362,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         ? { ...proj, steps: [...(Array.isArray(proj.steps) ? proj.steps : []), newStep] }
         : proj
     ));
-    void persistStepToSupabase(newStep, projectId);
+    void persistStepToFirebase(newStep, projectId);
   };
 
   const deleteProjectStep = (projectId: string, stepId: string) => {
@@ -353,7 +371,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         ? { ...proj, steps: (Array.isArray(proj.steps) ? proj.steps : []).filter(s => s.id !== stepId) }
         : proj
     ));
-    void removeStepFromSupabase(projectId, stepId);
+    void removeStepFromFirebase(projectId, stepId);
   };
 
   // Notification Management
@@ -366,12 +384,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       type: notificationData.type || 'system'
     };
     setNotifications(prev => [newNotification, ...prev]);
-    void persistNotificationToSupabase(newNotification);
+    void persistNotificationToFirebase(newNotification);
   };
 
   const markNotificationAsRead = (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
-    void markNotificationReadInSupabase(id, true);
+    void markNotificationReadInFirebase(id, true);
   };
 
   const markAllNotificationsAsRead = (userId: string) => {
@@ -408,11 +426,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       updatedPartners = Array.from(new Set([...updatedPartners, userId]));
     }
 
-    setProjects(prev => prev.map(p =>
-      p.id === projectId
-        ? { ...p, shareRequests: updatedShareRequests, partnerShares: updatedPartnerShares, partners: updatedPartners }
-        : p
-    ));
+    setProjects(prev => {
+      const next = prev.map(p => {
+        if (p.id === projectId) {
+          const updatedProj = { ...p, shareRequests: updatedShareRequests, partnerShares: updatedPartnerShares, partners: updatedPartners };
+          void persistProjectToFirebase(updatedProj);
+          return updatedProj;
+        }
+        return p;
+      });
+      return next;
+    });
 
     const recipient = users.find(u => u.id === project.ownerId);
     const requesterName = users.find(u => u.id === userId)?.name || 'شريك';
